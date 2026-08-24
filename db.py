@@ -17,6 +17,12 @@ class Database():
     
     def read_board_info(model:str):
         return None
+
+    def read_im_recipe(self, serial_number: str):
+        return None
+
+    def read_sb_recipe(self, serial_number: str):
+        return None
     
 import json
 # import mysql.connector
@@ -162,6 +168,28 @@ WHERE SerialNumber = ?
             return row[0]
         else:
             raise RuntimeError("Matricola non trovata nel database")
+
+    def read_im_recipe(self, serial_number: str):
+        row = None
+        try:
+            query = f"""
+SELECT Recipe
+FROM {self.database}.dbo.vwDataExport_SerialNumberArticleRecipe
+WHERE SerialNumber = ?
+  AND RecipeType = 'IM';"""
+            self.cursor.execute(query, (serial_number,))
+
+            rows = self.cursor.fetchall()
+            if len(rows):
+                row = rows[0]
+                print(f"IM Recipe: {row[0]}")
+        except Exception as e:
+            raise RuntimeError(f"Errore durante la lettura della ricetta SB - {e}")
+        if row is not None:
+            return row[0]
+        else:
+            raise RuntimeError("Matricola non trovata nel database")
+
 
     def read_all_board_info(self):
         try:
