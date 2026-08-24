@@ -295,7 +295,26 @@ if __name__ == "__main__":
                 print(f"[OK] {sn} -> Recipe: {recipe}  ({elapsed:.4f}s)")
             except Exception as e:
                 print(f"[FAIL] {sn} -> {e}")
-
+    elif mode == "im":
+            #db = MicrosoftSQLDatabase("I40PRDHIDBWIN", "HITECO_MDS_SER", "MesReader", "reader", driver="SQL Server")
+            db = MicrosoftSQLDatabase("I40TSTHIDBWIN", "HITECO_MDS_SER", "MesReader", "reader", driver="SQL Server")
+            if not db.connect():
+                print("Connessione al database fallita")
+                exit(1)
+    
+            test_serials = [
+                "H24J002819",
+            ]
+    
+            print("=== Test read_im_recipe ===")
+            for sn in test_serials:
+                try:
+                    start = time.perf_counter()
+                    recipe = db.read_im_recipe(sn)
+                    elapsed = time.perf_counter() - start
+                    print(f"[OK] {sn} -> Recipe: {recipe}  ({elapsed:.4f}s)")
+                except Exception as e:
+                    print(f"[FAIL] {sn} -> {e}")
     elif mode == "board":
         db = MicrosoftSQLDatabase("I40PRDHIDBWIN", "HITECO_MDS", "Mes_Reader", "reader", driver="SQL Server")
         if not db.connect():
