@@ -71,7 +71,7 @@ class MicrosoftSQLDatabase(Database):
             self.cursor = self.conn.cursor()
   
         except Exception as e:
-            logging.error(f"Errore connessione database: {e}")
+            print(e)
             return False
         return True
     
@@ -103,7 +103,7 @@ WHERE  l.CodeLine = 'LN1'
             rows = self.cursor.fetchall()
             if len(rows):
                 row = rows[0]
-                logging.info(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")                  
+                print(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")                  
             # 4. Esecuzione (Passa i parametri come tupla)
         except:
             return None
@@ -120,7 +120,49 @@ WHERE  l.CodeLine = 'LN1'
             return d
         else:
             raise RuntimeError( "Matricola non trovata nel database" )
-    
+
+    def read_test_board_info(self, model:str):
+        row = None
+        try:
+            query = """
+SELECT Recipe
+FROM HITECO_MDS_SER.dbo.vwDataExport_SerialNumberArticleRecipe
+WHERE RecipeType = 'IM'
+  AND TRIM(SerialNumber) = TRIM(?);"""
+            self.cursor.execute(query, (model,))
+
+            rows = self.cursor.fetchall()
+            if len(rows):
+                row = rows[0]
+                print(f"Recipe: {row.Recipe}")
+        except:
+            return None
+        if row != None:
+            return row.Recipe
+        else:
+            raise RuntimeError("Matricola non trovata nel database")
+
+    def read_sb_recipe(self, serial_number: str):
+        row = None
+        try:
+            query = f"""
+SELECT Recipe
+FROM {self.database}.dbo.vwDataExport_SerialNumberArticleRecipe
+WHERE SerialNumber = ?
+  AND RecipeType = 'SB';"""
+            self.cursor.execute(query, (serial_number,))
+
+            rows = self.cursor.fetchall()
+            if len(rows):
+                row = rows[0]
+                print(f"SB Recipe: {row[0]}")
+        except Exception as e:
+            raise RuntimeError(f"Errore durante la lettura della ricetta SB - {e}")
+        if row is not None:
+            return row[0]
+        else:
+            raise RuntimeError("Matricola non trovata nel database")
+
     def read_all_board_info(self):
         try:
             query = f"SELECT SerialNumber, Article FROM {self.table}"
@@ -131,7 +173,23 @@ WHERE  l.CodeLine = 'LN1'
             if rows:
                 for row in rows:
                     # In pyodbc puoi accedere per indice o nome
-                    logging.info(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")
+                    print(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")
+            # 4. Esecuzione (Passa i parametri come tupla)
+        except:
+            return None
+        return rows
+    
+    def read_all_test_recipe(self):
+        try:
+            query = f"SELECT SerialNumber, Article FROM {self.table}"
+            self.cursor.execute(query)
+
+            rows = self.cursor.fetchall()
+            
+            if rows:
+                for row in rows:
+                    # In pyodbc puoi accedere per indice o nome
+                    print(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")
             # 4. Esecuzione (Passa i parametri come tupla)
         except:
             return None
@@ -185,27 +243,52 @@ class TestDatabase(Database):
         return d
 
 import time
+import sys
 if __name__ == "__main__":
-    for driver in pyodbc.drivers():
-        print(driver)
-    db = MicrosoftSQLDatabase( "I40PRDHIDBWIN", "HITECO_MDS", "Mes_Reader", "reader", driver="SQL Server" )
-    db.connect()
-    ids = [
-        "H25H002267",
-        "H26A002530",
-        "H26A002532",
-        "H26A002533",
-        "H26A002534",
-        "H26C000976",
-    ]
-    for id in ids:
-        # print( db.read_all_board_info() )
-        try:
-            start_time = time.perf_counter()
-            db.read_board_info( id )
-            end_time = time.perf_counter()
-            durata = end_time - start_time
-            print(f"La query ha impiegato {durata:.4f} secondi")
-        except Exception as e:
-            print( f"Errore durante la lettura della matricola {id}, {str(e)}" )
+    mode = sys.argv[1] if len(sys.argv) > 1 else "sb"
+
+    if mode == "sb":
+        #db = MicrosoftSQLDatabase("I40PRDHIDBWIN", "HITECO_MDS_SER", "MesReader", "reader", driver="SQL Server")
+        db = MicrosoftSQLDatabase("I40TSTHIDBWIN", "HITECO_MDS_SER", "MesReader", "reader", driver="SQL Server")
+        if not db.connect():
+            print("Connessione al database fallita")
+            exit(1)
+
+        test_serials = [
+            "H24J002819",
+        ]
+
+        print("=== Test read_sb_recipe ===")
+        for sn in test_serials:
+            try:
+                start = time.perf_counter()
+                recipe = db.read_sb_recipe(sn)
+                elapsed = time.perf_counter() - start
+                print(f"[OK] {sn} -> Recipe: {recipe}  ({elapsed:.4f}s)")
+            except Exception as e:
+                print(f"[FAIL] {sn} -> {e}")
+
+    elif mode == "board":
+        db = MicrosoftSQLDatabase("I40PRDHIDBWIN", "HITECO_MDS", "Mes_Reader", "reader", driver="SQL Server")
+        if not db.connect():
+            print("Connessione al database fallita")
+            exit(1)
+
+        test_serials = [
+            "H24J002819",
+        ]
+
+        print("=== Test read_board_info ===")
+        for sn in test_serials:
+            try:
+                start = time.perf_counter()
+                info = db.read_board_info(sn)
+                elapsed = time.perf_counter() - start
+                print(f"[OK] {sn} -> {info}  ({elapsed:.4f}s)")
+            except Exception as e:
+                print(f"[FAIL] {sn} -> {e}")
+
+    else:
+        print(f"Modalità '{mode}' non riconosciuta. Usa: sb | board")
+
     db.disconnect()

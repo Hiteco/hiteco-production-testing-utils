@@ -2,6 +2,7 @@
 
 import argparse
 import getpass
+import json
 import os
 import sys
 import smbclient
@@ -14,7 +15,7 @@ try:
 except ImportError:
     _KEYRING_AVAILABLE = False
 
-_KEYRING_SERVICE = "shared_folder_smb"
+_KEYRING_SERVICE = "spb_prod_test_shared_folder_smb"
 
 
 class SharedFolder:
@@ -36,9 +37,27 @@ class SharedFolder:
             parts = self.share_path.lstrip("\\").lstrip("/").split("/")
         self.server = parts[0]
         self.username = username
+        if not password:
+            password = self._password_from_credential_manager(username)
         self.password = password
         self.port = port
         self._connected = False
+
+    @staticmethod
+    def _password_from_credential_manager(username: str) -> str:
+        """Look up the password in Windows Credential Manager (via keyring)."""
+        if not _KEYRING_AVAILABLE:
+            raise RuntimeError(
+                "No password provided and keyring is not installed "
+                "(pip install keyring) to read it from Windows Credential Manager."
+            )
+        password = keyring.get_password(_KEYRING_SERVICE, username)
+        if not password:
+            raise RuntimeError(
+                f"No password provided and no credentials found in Windows "
+                f"Credential Manager for user '{username}' (service '{_KEYRING_SERVICE}')."
+            )
+        return password
 
     def connect(self) -> None:
         """Register the SMB session with the server."""
@@ -126,6 +145,29 @@ class SharedFolder:
             with smbclient.open_file(path, mode="w", encoding=encoding) as f:
                 f.write(content)
 
+    def write_pdf_file(
+        self,
+        local_path: str,
+        subfolder: str,
+        filename: Optional[str] = None,
+    ) -> None:
+        """
+        Upload a local PDF file to a subfolder on the share.
+
+        Args:
+            local_path: Path to the local PDF file to upload
+            subfolder:  Relative path of the target folder on the share
+            filename:   Name to give the file on the share; defaults to
+                        the local file's basename
+        """
+        if not os.path.isfile(local_path):
+            raise FileNotFoundError(f"Local pdf file not found: {local_path}")
+        if filename is None:
+            filename = os.path.basename(local_path)
+        with open(local_path, "rb") as f:
+            content = f.read()
+        self.write_file(subfolder, filename, content)
+
     # ------------------------------------------------------------------
     # File reading
     # ------------------------------------------------------------------
@@ -156,6 +198,26 @@ class SharedFolder:
         else:
             with smbclient.open_file(path, mode="r", encoding=encoding) as f:
                 return f.read()
+
+    def read_json_file(
+        self,
+        subfolder: str,
+        filename: str,
+        encoding: str = "utf-8",
+    ) -> dict:
+        """
+        Read a JSON file from a subfolder and parse it.
+
+        Args:
+            subfolder: Relative path of the folder containing the file
+            filename:  Name of the JSON file to read
+            encoding:  Text encoding
+
+        Returns:
+            Parsed JSON content as a dict.
+        """
+        content = self.read_file(subfolder, filename, binary=False, encoding=encoding)
+        return json.loads(content)
 
     def exists(self, subfolder: str = "", filename: str = "") -> bool:
         """Return True if the given path exists on the share."""
