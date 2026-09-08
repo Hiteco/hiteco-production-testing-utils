@@ -1,6 +1,9 @@
 from packaging.version import Version
 from app_config import *
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Database():
     def __init__(self, host="localhost", database="database", user="admin", password="admin"):
@@ -77,7 +80,7 @@ class MicrosoftSQLDatabase(Database):
             self.cursor = self.conn.cursor()
   
         except Exception as e:
-            print(e)
+            logger.error(f"Connessione al database fallita: {e}")
             return False
         return True
     
@@ -109,7 +112,7 @@ WHERE  l.CodeLine = 'LN1'
             rows = self.cursor.fetchall()
             if len(rows):
                 row = rows[0]
-                print(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")                  
+                logger.info(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")
             # 4. Esecuzione (Passa i parametri come tupla)
         except:
             return None
@@ -140,7 +143,7 @@ WHERE RecipeType = 'IM'
             rows = self.cursor.fetchall()
             if len(rows):
                 row = rows[0]
-                print(f"Recipe: {row.Recipe}")
+                logger.info(f"Recipe: {row.Recipe}")
         except:
             return None
         if row != None:
@@ -161,7 +164,7 @@ WHERE SerialNumber = ?
             rows = self.cursor.fetchall()
             if len(rows):
                 row = rows[0]
-                print(f"SB Recipe: {row[0]}")
+                logger.info(f"SB Recipe: {row[0]}")
         except Exception as e:
             raise RuntimeError(f"Errore durante la lettura della ricetta SB - {e}")
         if row is not None:
@@ -182,7 +185,7 @@ WHERE SerialNumber = ?
             rows = self.cursor.fetchall()
             if len(rows):
                 row = rows[0]
-                print(f"IM Recipe: {row[0]}")
+                logger.info(f"IM Recipe: {row[0]}")
         except Exception as e:
             raise RuntimeError(f"Errore durante la lettura della ricetta SB - {e}")
         if row is not None:
@@ -201,7 +204,7 @@ WHERE SerialNumber = ?
             if rows:
                 for row in rows:
                     # In pyodbc puoi accedere per indice o nome
-                    print(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")
+                    logger.info(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")
             # 4. Esecuzione (Passa i parametri come tupla)
         except:
             return None
@@ -217,7 +220,7 @@ WHERE SerialNumber = ?
             if rows:
                 for row in rows:
                     # In pyodbc puoi accedere per indice o nome
-                    print(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")
+                    logger.info(f"Serial: {row.SerialNumber}, Articolo: {row.Article}")
             # 4. Esecuzione (Passa i parametri come tupla)
         except:
             return None
